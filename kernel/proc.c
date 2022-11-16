@@ -299,6 +299,9 @@ fork(void)
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
+  // copy mask arguments 
+  np->mask = p->mask;
+
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
 
@@ -680,4 +683,20 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+// Count the number of free processes
+uint64
+free_proc_counter()
+{
+  struct proc *p;
+  uint64 total_count = 0;
+  for(p = proc ; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->state != UNUSED){
+      total_count+=1;
+    }
+    release(&p->lock);
+  }
+  return total_count;
 }

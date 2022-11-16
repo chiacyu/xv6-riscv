@@ -138,6 +138,7 @@ UPROGS=\
 	$U/_xargs\
 	$U/_primes\
 	$U/_trace\
+	$U/_sysinfotest\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
