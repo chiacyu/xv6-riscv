@@ -46,6 +46,9 @@ kvmmake(void)
   // allocate and map a kernel stack for each process.
   proc_mapstacks(kpgtbl);
   
+  //print the page table content
+  //vmprint(kpgtbl);
+
   return kpgtbl;
 }
 
@@ -436,4 +439,65 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   } else {
     return -1;
   }
+}
+
+void
+vmprint(pagetable_t pagetable)
+{
+  printf("page table : %p\n", pagetable);
+  for(int i=0 ; i<512 ; i++){
+    pte_t pte = pagetable[i];
+    if(!(pte & PTE_V)){
+      continue;
+    }
+    pagetable_t pgtel1 = (pagetable_t)PTE2PA(pte);
+    printf("..%d: pte %p pa %p\n", i, pte, pgtel1);
+
+    for (int j=0 ; j<512 ; j++) {
+      pte = pgtel1[j];
+      if(!(pte & PTE_V)) {
+        continue;
+      }
+      pagetable_t pgtel2 = (pagetable_t)PTE2PA(pte);
+      printf(".. ..%d:pte %p pa %p\n", j, pte, pgtel2);
+
+      for(int k=0 ; k<512 ; k++){
+        pte = pgtel2[k];
+        if(!(pte & PTE_V)){
+          continue;
+        }
+        pagetable_t pgtel3 = (pagetable_t)PTE2PA(pte);
+        printf(".. .. ..%d:pte %p pa %p\n", k, pte, pgtel3);
+      }
+    }
+  }
+  return;
+}
+
+pagetable_t 
+user_kvminit(void)
+{
+  pagetable_t ukpgtbl;
+  ukpgtbl = uvmcreate();
+
+  for (int i=0 ; i<512 ; i++) {
+    ukpgtbl[i] = kernel_pagetable[i];
+  }
+
+  //map the address of UART0 of user address
+  kvmmap(ukpgtbl, UART0, UART0, PGSIZE, PTE_R | PTE_R);
+
+  //map the address of virtual disk of user address
+  kvmmap(ukpgtbl, VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_R);
+
+  //map the address of PLIC address
+  kvmmap(ukpgtbl, PLIC, PLIC, 0x400000, PTE_R | PTE_W);
+
+  return ukpgtbl;
+}
+
+void 
+free_ukvm(pagetable_t pgtaddr)
+{
+
 }

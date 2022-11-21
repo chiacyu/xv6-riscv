@@ -140,6 +140,10 @@ found:
     return 0;
   }
 
+  //allocate kernel page table for each process
+  p->kernel_pagetable = user_kvminit();
+  
+
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
@@ -463,6 +467,11 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+
+        //Assign the kernel page table for each process
+        w_satp(MAKE_SATP(p->kernel_pagetable));
+        sfence_vma();
+
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
