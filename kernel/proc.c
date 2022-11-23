@@ -469,8 +469,8 @@ scheduler(void)
         c->proc = p;
 
         //Assign the kernel page table for each process
-        w_satp(MAKE_SATP(p->kernel_pagetable));
-        sfence_vma();
+        //w_satp(MAKE_SATP(p->kernel_pagetable));
+        //sfence_vma();
 
         swtch(&c->context, &p->context);
 

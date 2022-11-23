@@ -137,7 +137,6 @@ kvmmap(pagetable_t kpgtbl, uint64 va, uint64 pa, uint64 sz, int perm)
   if(mappages(kpgtbl, va, sz, pa, perm) != 0)
     panic("kvmmap");
 }
-
 // Create PTEs for virtual addresses starting at va that refer to
 // physical addresses starting at pa. va and size might not
 // be page-aligned. Returns 0 on success, -1 if walk() couldn't
@@ -477,27 +476,41 @@ vmprint(pagetable_t pagetable)
 pagetable_t 
 user_kvminit(void)
 {
-  pagetable_t ukpgtbl;
-  ukpgtbl = uvmcreate();
+  pagetable_t ukpgt;
 
-  for (int i=0 ; i<512 ; i++) {
-    ukpgtbl[i] = kernel_pagetable[i];
-  }
+  ukpgt = uvmcreate();
 
-  //map the address of UART0 of user address
-  kvmmap(ukpgtbl, UART0, UART0, PGSIZE, PTE_R | PTE_R);
 
-  //map the address of virtual disk of user address
-  kvmmap(ukpgtbl, VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_R);
+  if (ukpgt == 0) return 0;
+  kvmmap(ukpgt, UART0, UART0, PGSIZE, PTE_R | PTE_W);
 
-  //map the address of PLIC address
-  kvmmap(ukpgtbl, PLIC, PLIC, 0x400000, PTE_R | PTE_W);
+  kvmmap(ukpgt, VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W);
 
-  return ukpgtbl;
+  kvmmap(ukpgt, CLINT, CLINT, 0x10000, PTE_R | PTE_W);
+
+  kvmmap(ukpgt, PLIC, PLIC, 0x400000, PTE_R | PTE_W);
+
+  kvmmap(ukpgt, KERNBASE, KERNBASE, (uint64)etext-KERNBASE, PTE_R | PTE_X);
+
+  kvmmap(ukpgt, (uint64)etext, (uint64)etext, PHYSTOP-(uint64)etext, PTE_R | PTE_W);
+
+  kvmmap(ukpgt, TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X);
+  return ukpgt;
 }
 
 void 
 free_ukvm(pagetable_t pgtaddr)
 {
 
+  for(int i = 0; i < 512; i++){
+    pte_t pte = pgtaddr[i];
+    if((pte & PTE_V)){
+      pgtaddr[i] = 0;
+      if((pte & (PTE_R|PTE_W|PTE_X)) == 0){
+        uint64 child = PTE2PA(pte);
+        free_ukvm((pagetable_t)child);
+      }
+    } 
+  }
+  kfree((void*)pgtaddr);
 }
